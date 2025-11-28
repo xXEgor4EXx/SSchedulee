@@ -2,6 +2,7 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
 	import { GetSchedule, GetGroupSchedule } from './Resource.js';
+	import GroupSelector from './GroupSelector.svelte';
 	
 	let formEduData = $state([]);
 	let selectedGroup = $state(null);
@@ -17,7 +18,6 @@
 	let expandedForms = $state({});
 	let expandedCurs = $state({});
 	
-	// Новое состояние для управления Drawer
 	let showGroupSelector = $state(true);
 	let drawerOpen = $state(false);
 
@@ -86,32 +86,6 @@
 		drawerOpen = true;
 	}
 
-	// Функция для преобразования данных расписания в плоский список
-	function getFlattenedSchedule() {
-		if (!groupSchedule || !groupSchedule.Month) return [];
-		
-		const lessons = [];
-		
-		groupSchedule.Month.forEach(month => {
-			month.Sched.forEach(day => {
-				day.mainSchedule.forEach(lesson => {
-					lessons.push({
-						date: day.datePair,
-						dayweek: day.dayweek,
-						dayweekShort: day.dayweekShort,
-						time: lesson.TimeStart,
-						subj: lesson.SubjName || lesson.SubjSN,
-						kind: lesson.LoadKindSN,
-						teacher: lesson.FIO,
-						aud: lesson.Aud
-					});
-				});
-			});
-		});
-		
-		return lessons;
-	}
-
 	// Функция для прокрутки к сегодняшнему дню
 	function scrollToToday() {
 		if (!scheduleContainer) return;
@@ -148,55 +122,61 @@
 			</div>
 			
 			{#if loadingSchedule}
-				<p>Загрузка расписания...</p>
-			{:else if groupSchedule}
-				<div class='schedule-info' bind:this={scheduleContainer}>
-					{#each groupSchedule.Month as month}
-						<div class='month-section'>
-							<h4 class='month-title'>{month.Name} {month.Numb}</h4>
-							
-							{#each month.Sched as day}
-								<div class='day-section {day.datePair === todayDate ? "today" : ""}'>
-									<div class='day-header'>
-										<span class='date'>{day.datePair}</span>
-										<span class='day-week'>{day.dayWeek}</span>
-										{#if day.datePair === todayDate}
-									<span class="today-badge">Сегодня</span>
-									{/if}
-								</div>
-									
-									{#if day.mainSchedule && day.mainSchedule.length > 0}
-										<div class='lessons'>
-											{#each day.mainSchedule as lesson, index}
-												<div class='lesson'>
-													<div class='lesson-time'>
-														{lesson.TimeStart}
-														{#if lesson.TimeEnd}
-															- {lesson.TimeEnd}
-														{/if}
-													</div>
-													<div class='lesson-content'>
-														<div class='subject'>{lesson.SubjName}</div>
-														<div class='lesson-details'>
-															<span class='type'>{lesson.LoadKindSN}</span>
-															<span class='teacher'>{lesson.FIO}</span>
-															<span class='audience'>{lesson.Aud}</span>
-														</div>
-													</div>
-												</div>
-											{/each}
-										</div>
-									{:else}
-										<div class='no-lessons'>Нет занятий</div>
-									{/if}
-								</div>
-							{/each}
-						</div>
-					{/each}
-				</div>
-			{:else}
-				<p>Расписание не найдено или произошла ошибка</p>
-			{/if}
+    <p>Загрузка расписания...</p>
+{:else if groupSchedule}
+    <div class='schedule-info' bind:this={scheduleContainer}>
+        {#each groupSchedule.Month as month}
+            <div class='month-section'>
+                <h4 class='month-title'>{month.Name} {month.Numb}</h4>
+                
+                <!-- СТАТИСТИКА МЕСЯЦА -->
+                <div class='month-stats'>
+                    <span class='stats-item'>Дней: {month.Sched.length}</span>
+                    <span class='stats-item'>Пар: {month.Sched.reduce((total, day) => total + (day.mainSchedule ? day.mainSchedule.length : 0), 0)}</span>
+                </div>
+                
+                {#each month.Sched as day}
+                    <div class='day-section {day.datePair === todayDate ? "today" : ""}'>
+                        <div class='day-header'>
+                            <span class='date'>{day.datePair}</span>
+                            <span class='day-week'>{day.dayWeek}</span>
+                            {#if day.datePair === todayDate}
+                                <span class="today-badge">Сегодня</span>
+                            {/if}
+                        </div>
+                        
+                        {#if day.mainSchedule && day.mainSchedule.length > 0}
+                            <div class='lessons'>
+                                {#each day.mainSchedule as lesson, index}
+                                    <div class='lesson'>
+                                        <div class='lesson-time'>
+                                            {lesson.TimeStart}
+                                            {#if lesson.TimeEnd}
+                                                - {lesson.TimeEnd}
+                                            {/if}
+                                        </div>
+                                        <div class='lesson-content'>
+                                            <div class='subject'>{lesson.SubjName}</div>
+                                            <div class='lesson-details'>
+                                                <span class='type'>{lesson.LoadKindSN}</span>
+                                                <span class='teacher'>{lesson.FIO}</span>
+                                                <span class='audience'>{lesson.Aud}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {/each}
+                            </div>
+                        {:else}
+                            <div class='no-lessons'>Нет занятий</div>
+                        {/if}
+                    </div>
+                {/each}
+            </div>
+        {/each}
+    </div>
+{:else}
+    <p>Расписание не найдено или произошла ошибка</p>
+{/if}
 		</div>
 	{/if}
 
@@ -215,45 +195,16 @@
 					{:else if error}
 						<p class="error">Ошибка: {error}</p>
 					{:else}
-						<div class="tree-container">
-							{#each formEduData as form}
-								<div class="tree-node">
-									<div class="folder" on:click={() => toggleForm(form.FormEdu_ID)}>
-										<span class="arrow">{expandedForms[form.FormEdu_ID] ? '▼' : '▶'}</span>
-										<span class="folder-name">{form.FormEduName}</span>
-									</div>
-									
-									{#if expandedForms[form.FormEdu_ID]}
-										<div class="nested">
-											{#each form.arr as cursItem}
-												<div class="tree-node">
-													<div class="folder" on:click={() => toggleCurs(form.FormEdu_ID, cursItem.Curs)}>
-														<span class="arrow">{expandedCurs[`${form.FormEdu_ID}_${cursItem.Curs}`] ? '▼' : '▶'}</span>
-														<span class="folder-name">Курс {cursItem.Curs}</span>
-													</div>
-													
-													{#if expandedCurs[`${form.FormEdu_ID}_${cursItem.Curs}`]}
-														<div class="nested">
-															{#each cursItem.arr as group}
-																<div 
-																	class="group-item {selectedGroup?.GS_ID === group.GS_ID ? 'selected' : ''}"
-																	on:click={() => onGroupSelect(group)}
-																>
-																	{group.GSName}
-																	{#if loadingSchedule && selectedGroup?.GS_ID === group.GS_ID}
-																		<span class="loading">Загрузка...</span>
-																	{/if}
-																</div>
-															{/each}
-														</div>
-													{/if}
-												</div>
-											{/each}
-										</div>
-									{/if}
-								</div>
-							{/each}
-						</div>
+						<GroupSelector 
+							{formEduData}
+							{selectedGroup}
+							{loadingSchedule}
+							{onGroupSelect}
+							{expandedForms}
+							{expandedCurs}
+							{toggleForm}
+							{toggleCurs}
+						/>
 					{/if}
 				</div>
 			</div>
@@ -433,87 +384,6 @@
 		}
 	}
 
-	/* Остальные стили остаются такими же, как в вашем исходном коде */
-	.tree-container {
-		border: 1px solid #ddd;
-		border-radius: 8px;
-		padding: 15px;
-		background: white;
-		box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-	}
-
-	.schedule {
-		border: 1px solid #ddd;
-		border-radius: 8px;
-		padding: 15px;
-		background: white;
-		min-height: 300px;
-		box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-	}
-
-	.lesson-content {
-		max-width: 100%;
-		overflow-x: auto;
-	}
-
-	/* Стили для дерева */
-	.tree-node {
-		margin: 2px 0;
-	}
-
-	.folder {
-		cursor: pointer;
-		padding: 8px 5px;
-		border-radius: 4px;
-		display: flex;
-		align-items: center;
-		gap: 5px;
-		transition: background-color 0.2s;
-	}
-
-	.folder:hover {
-		background-color: #e9ecef;
-	}
-
-	.arrow {
-		font-size: 12px;
-		width: 15px;
-		text-align: center;
-		color: #666;
-	}
-
-	.folder-name {
-		font-weight: 600;
-		color: #333;
-	}
-
-	.nested {
-		margin-left: 20px;
-		border-left: 1px solid #e0e0e0;
-		padding-left: 10px;
-	}
-
-	.group-item {
-		cursor: pointer;
-		padding: 6px 10px;
-		border-radius: 4px;
-		margin: 2px 0;
-		transition: all 0.2s;
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-	}
-
-	.group-item:hover {
-		background-color: #e3f2fd;
-	}
-
-	.group-item.selected {
-		background-color: #2196f3;
-		color: white;
-		font-weight: bold;
-	}
-
 	/* Стили для таблицы расписания */
 	.schedule-info {
 		max-height: 600px;
@@ -673,6 +543,41 @@
 	.schedule-info {
 		scroll-behavior: smooth;
 	}
+
+	.error {
+		color: #d32f2f;
+		text-align: center;
+		padding: 20px;
+	}
+
+	.month-stats {
+    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+    padding: 10px 15px;
+    display: flex;
+    gap: 25px;
+    border-bottom: 1px solid #90caf9;
+    font-size: 14px;
+	}
+
+.stats-item {
+    color: #0d47a1;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.stats-item:before {
+    font-size: 12px;
+    background: #2196f3;
+    color: white;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
 	/* Мобильные стили */
 	@media (max-width: 500px) {
 		/* Welcome Screen для мобильных */
@@ -833,42 +738,6 @@
 			max-height: 60vh;
 		}
 
-		/* Дерево групп для мобильных */
-		.tree-container {
-			padding: 10px;
-			border: none;
-			box-shadow: none;
-		}
-
-		.folder {
-			padding: 12px 8px;
-			font-size: 15px;
-		}
-
-		.folder-name {
-			font-size: 15px;
-		}
-
-		.group-item {
-			padding: 10px 12px;
-			font-size: 14px;
-			margin: 3px 0;
-		}
-
-		.arrow {
-			font-size: 14px;
-			width: 20px;
-		}
-
-		.nested {
-			margin-left: 15px;
-			padding-left: 8px;
-		}
-
-		.schedule-info {
-			-webkit-overflow-scrolling: touch;
-		}
-
 		@keyframes slideUpMobile {
 			from { 
 				opacity: 0;
@@ -897,6 +766,34 @@
 			padding: 8px;
 		}
 	}
+	.month-stats {
+    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+    padding: 10px 15px;
+    display: flex;
+    gap: 25px;
+    border-bottom: 1px solid #90caf9;
+    font-size: 14px;
+	}
+
+.stats-item {
+    color: #0d47a1;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.stats-item:before {
+    font-size: 12px;
+    background: #2196f3;
+    color: white;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
 
 	@media (max-width: 350px) {
 		.welcome-content h1 {
@@ -910,16 +807,6 @@
 		.month-title {
 			font-size: 14px;
 			padding: 8px 10px;
-		}
-
-		.folder {
-			padding: 10px 6px;
-			font-size: 14px;
-		}
-
-		.group-item {
-			padding: 8px 10px;
-			font-size: 13px;
 		}
 	}
 
